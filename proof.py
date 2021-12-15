@@ -35,48 +35,37 @@ def id_proof():
     """
     logging.info("id_proof : Start")
     resp_dict={"object":None,"status":False}
-    try:
-        user_seq_no = 1
-        if user_seq_no > 0:
-            image = request.files['image']
-            input_json = json.load(request.files['data'])
-            if image:
-                str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
-                image_file_name = str_time+".jpg"
-                
-                logging.info(os.path.isdir(IMAGE_PATH))
-                if os.path.isdir(IMAGE_PATH)==False:
-                    os.mkdir(IMAGE_PATH)
-                    
-                # image save
-                image.save(os.path.join(IMAGE_PATH,image_file_name))
-                image_read = cv2.imread(IMAGE_PATH+"/"+image_file_name)
-                
-                type_id = input_json["id_type"]
-                
-                config_obj =  Config.query.filter(Config.id_type ==input_json["id_type"]).all()
-                logging.info(f"config_obj:{config_obj}")
-                
-                if input_json["id_type"]:
-                    verified = verify(config_obj,image_read,type_id)
-                else:
-                    # print("Id Type Required")
-                    resp_dict["object"] = "Id Type Required"
-                    
-                #proof_dict={"score":verified}
-                resp_dict["object"] = verified
-                resp_dict["status"] = True
-            else:
-                resp_dict["object"] = "Image Required"
-                    
+    
+    image = request.files['image']
+    input_json = request.form.get('id_type')
+    
+    if image:
+        str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
+        image_file_name = str_time+".jpg"
+        
+        logging.info(os.path.isdir(IMAGE_PATH))
+        if os.path.isdir(IMAGE_PATH)==False:
+            os.mkdir(IMAGE_PATH)
+            
+        # image save
+        image.save(os.path.join(IMAGE_PATH,image_file_name))
+        image_read = cv2.imread(IMAGE_PATH+"/"+image_file_name)
+        
+        type_id = input_json
+        
+        config_obj =  Config.query.filter(Config.id_type ==input_json).all()
+        
+        if input_json:
+            verified = verify(config_obj,image_read,type_id)
         else:
-            resp_dict["msg"] = "Session Expired"
+            resp_dict["msg"] = "Id Type Required"
+            
+        resp_dict["object"] = verified
+        resp_dict["status"] = True
+    else:
+        resp_dict["object"] = "Image Required"
  
-    except Exception as e:
-        logging.exception("id_proof : exception : {}".format(e))
-        resp_dict["msg"] = "Internal Server Error"  
-    finally:
-        os.remove(IMAGE_PATH+"/"+image_file_name)
+    os.remove(IMAGE_PATH+"/"+image_file_name)
         
     resp = jsonify(resp_dict)
     logging.debug("id_proof : end")
@@ -272,57 +261,54 @@ def verify_image(img):
 def value():
     logging.debug("value : start")
     resp_dict = {"status":False, "msg":"", "object":None}
-    try:
-        image = request.files['image']
-        input_json = json.load(request.files['data'])
+
+    image = request.files['image']
+    input_json = request.form.get('id_type')
+    
+    type_id = input_json
+    
+    if image:
+        str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
+        image_file_name = str_time+".jpg"
         
-        type_id = input_json["id_type"]
-        
-        if image:
-            str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
-            image_file_name = str_time+".jpg"
+        logging.info(os.path.isdir(IMAGE_PATH))
+        if os.path.isdir(IMAGE_PATH)==False:
+            os.mkdir(IMAGE_PATH)
             
-            logging.info(os.path.isdir(IMAGE_PATH))
-            if os.path.isdir(IMAGE_PATH)==False:
-                os.mkdir(IMAGE_PATH)
-                
-            # image save
-            image.save(os.path.join(IMAGE_PATH,image_file_name))
-            
-        img = cv2.imread(IMAGE_PATH+"/"+image_file_name)
-        d = pytesseract.image_to_data(img, output_type=Output.DICT)
-        n_boxes = len(d['level'])
-        logging.info(d['text'])
+        # image save
+        image.save(os.path.join(IMAGE_PATH,image_file_name))
         
-        response_dict = {}
+    img = cv2.imread(IMAGE_PATH+"/"+image_file_name)
+    d = pytesseract.image_to_data(img, output_type=Output.DICT)
+    n_boxes = len(d['level'])
+    logging.info(d['text'])
+    
+    response_dict = {}
+    
+    for i in range(n_boxes):
+        value_dict = {}
+        value_dict['left'] = d['left'][i]
+        value_dict['top'] = d['top'][i]
+        value_dict['width'] = d['width'][i]
+        value_dict['height'] = d['height'][i]
         
-        for i in range(n_boxes):
-            value_dict = {}
-            value_dict['left'] = d['left'][i]
-            value_dict['top'] = d['top'][i]
-            value_dict['width'] = d['width'][i]
-            value_dict['height'] = d['height'][i]
-            
-            response_dict[d['text'][i]] = value_dict
-            
-        image = verify_image(img)
-        lst = ["breath", int(image[0]),"length",int(image[1])]
+        response_dict[d['text'][i]] = value_dict
         
-        def Convert(lst):
-            res_dct = {lst[i]: lst[i + 1] for i in range(0, len(lst), 2)}
-            return res_dct
-        
-        length_breath = Convert(lst)
-        
-        result_dict={"text":response_dict, "image":length_breath,"id_type":type_id}
-        resp_dict["object"] = result_dict
-        resp_dict ["status"] = True
-        
-    except Exception as e:
-        logging.error("value : exception : {}".format(e))
-        resp_dict["msg"] = "Internal Server Error"
-    finally:
-        os.remove(IMAGE_PATH+"/"+image_file_name)
+    image = verify_image(img)
+    lst = ["breath", int(image[0]),"length",int(image[1])]
+    
+    def Convert(lst):
+        res_dct = {lst[i]: lst[i + 1] for i in range(0, len(lst), 2)}
+        return res_dct
+    
+    length_breath = Convert(lst)
+    
+    result_dict={"text":response_dict, "image":length_breath,"id_type":type_id}
+    resp_dict["object"] = result_dict
+    resp_dict ["status"] = True
+    
+    os.remove(IMAGE_PATH+"/"+image_file_name)
+    
     logging.debug("value : end")
     return jsonify(resp_dict)
 
