@@ -153,36 +153,41 @@ def verify(config_obj,image,type_id):
             for i in range(len(version_numbers)):
                 
                 if version_numbers[i].params_dist== distance_value[i]['value']:
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'distance', 'key': version_numbers[i].params, 'value':100})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Distance', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': distance_value[i]['value'],'expected_dimension':version_numbers[i].params_dist, 'percentage':(distance_value[i]['value']/version_numbers[i].params_dist)*100})
                 else:
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'distance', 'key': version_numbers[i].params, 'value':0})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Distance', 'param_value': version_numbers[i].params, 'value':0, 'actual_dimension': distance_value[i]['value'],'expected_dimension':version_numbers[i].params_dist, 'percentage':(version_numbers[i].params_dist/distance_value[i]['value'])*100})
                 
                 if version_numbers[i].params_ratio == ratio_value[i]['value']:
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'ratio', 'key': version_numbers[i].params, 'value':100})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':(version_numbers[i].params_ratio/ratio_value[i]['value'])*100})
                 else:
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'ratio', 'key': version_numbers[i].params, 'value':0})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':0, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':(version_numbers[i].params_ratio/ratio_value[i]['value'])*100})
                 
-                if version_numbers[i].image_breath == breath and version_numbers[i].image_length == length :
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'image', 'key': version_numbers[i].image_key, 'value':100, 'key1': version_numbers[i].image_key, 'value1':100})
-                else:
-                    result_dist.append({'id': version_numbers[i].id_version, 'type': 'image', 'key': version_numbers[i].image_key, 'value':0,'key1': version_numbers[i].image_key, 'value1':100})
+            if version_numbers[i].image_breath == breath :
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':100, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':(version_numbers[i].image_breath/breath)*100})
+            else:
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':0, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':(version_numbers[i].image_breath/breath)*100})
+                
+            if version_numbers[i].image_length == length :
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':(version_numbers[i].image_length/length)*100})
+            else:
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':0, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':(version_numbers[i].image_length/length)*100})
                     
-            # print(f"result_dist:{result_dist}")
             result_df = pd.DataFrame(result_dist)
-            print(f"result_df:{result_df}")
             
-            df = result_df.loc[:,["type","key","value"]]
-            key_values = dict(zip(zip((df['type'] + df['key'])), (df["value"])))
-            dict_copy = {key[0]: value for key, value in key_values.items()}
+            df = result_df.loc[:,["param_type","param_value","value","actual_dimension","expected_dimension","percentage"]]
+            data = df.to_dict('records')
             
-            copy = list(dict_copy.values())
+            copy = [ sub['value'] for sub in data ]
+
             total = sum(copy)/len(copy)
-            print("total",total)
             
-            dict_copy['total'] = round(total)
-            print("dict_copy",dict_copy)
-            result_list.append(dict_copy)
+            a_dictionary = {"total" : round(total)}
             
+            data.append(a_dictionary)
+            
+            result_list.append(data)
+            
+            # 
             grouped = result_df.groupby(['id'])
             mean = grouped['value'].agg(np.mean)
             
@@ -191,19 +196,21 @@ def verify(config_obj,image,type_id):
             
         result_score_dict= list(update_mean_dict.values())
         result = max(result_score_dict) 
+        #
         
         for i in result_list:
-            total_list.append(i['total']) 
+            total_list.append(i[-1]['total']) 
         
         total_max = max(total_list)
-        print("total_max",total_max)
         
-        key_dict ={}
+        key_list = []
         for j in result_list:
-            if total_max == j['total']:
-                key_dict = j
+            if total_max == j[-1]['total']:
+                key_list = j
+                
+        print("key_list",key_list)
         
-        proof_dict={"score":result, "key_score":key_dict,"id_type":type_id}
+        proof_dict={"score":result, "key_score":key_list[:-1],"id_type":type_id}
         return proof_dict
         
     except Exception as e:
