@@ -216,7 +216,7 @@ def verify(config_obj,image,type_id):
     except Exception as e:
         logging.exception("verify : exception : {}".format(e))
     logging.debug("verify : end")
-    return 0
+    return {"score":0, "key_score":[],"id_type":type_id}
 
 def verify_image(img):
     """
