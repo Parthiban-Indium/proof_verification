@@ -80,10 +80,10 @@ def verify(config_obj,image,type_id):
     logging.info("verify : Start")
     key_list = []
     try:
-        verified_image = verify_image(image)
+        # verified_image = verify_image(image)
         
-        breath = verified_image[0]
-        length = verified_image[1]
+        # breath = verified_image[0]
+        # length = verified_image[1]
         
         #OCR
         original_text_extract = pytesseract.image_to_data(image, output_type=Output.DICT)
@@ -154,15 +154,15 @@ def verify(config_obj,image,type_id):
                 per_max = max(per)
                 percentage_ratio = (per_min/per_max)*100
                 
-                per_breath = [version_numbers[i].image_breath, breath]
-                per_b_min = min(per_breath)
-                per_b_max = max(per_breath)
-                per_image_breath = (per_b_min/per_b_max)*100
+                # per_breath = [version_numbers[i].image_breath, breath]
+                # per_b_min = min(per_breath)
+                # per_b_max = max(per_breath)
+                # per_image_breath = (per_b_min/per_b_max)*100
                 
-                per_length = [version_numbers[i].image_length, length]
-                per_l_min = min(per_length)
-                per_l_max = max(per_length)
-                per_image_length = (per_l_min/per_l_max)*100
+                # per_length = [version_numbers[i].image_length, length]
+                # per_l_min = min(per_length)
+                # per_l_max = max(per_length)
+                # per_image_length = (per_l_min/per_l_max)*100
                 
                     
                 if version_numbers[i].params_ratio == ratio_value[i]['value']:
@@ -170,15 +170,15 @@ def verify(config_obj,image,type_id):
                 else:
                     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':round(percentage_ratio), 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':round(percentage_ratio)})
                 
-            if version_numbers[i].image_breath == breath :
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':100, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
-            else:
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':round(per_image_breath), 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
+            # if version_numbers[i].image_breath == breath :
+            #     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':100, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
+            # else:
+            #     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':round(per_image_breath), 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
                 
-            if version_numbers[i].image_length == length :
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
-            else:
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':round(per_image_length), 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
+            # if version_numbers[i].image_length == length :
+            #     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
+            # else:
+            #     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':round(per_image_length), 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
                     
             result_df = pd.DataFrame(result_dist)
             
