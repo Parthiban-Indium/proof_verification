@@ -5,20 +5,19 @@ from sqlalchemy.sql.expression import distinct
 
 import os
 
-import json
 import cv2
 import pytesseract
 import math
 import numpy as np
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe'
+#pytesseract.pytesseract.tesseract_cmd = "/home/indium/Documents/develop/tesseract\tesseract.exe"
 
 from pytesseract import Output
 
 import datetime
 import pandas as pd
 
-IMAGE_PATH = "C:\\Users\\Indium Software\\Documents\\develop\\document_proof\\images"
+IMAGE_PATH = "/home/indium/Documents/develop/id_verify/backend/images"
 
 @app.route("/")
 def home():
@@ -79,13 +78,12 @@ def verify(config_obj,image,type_id):
     
     """
     logging.info("verify : Start")
+    key_list = []
     try:
         verified_image = verify_image(image)
         
         breath = verified_image[0]
-        logging.info(f"breath:{breath}")
         length = verified_image[1]
-        logging.info(f"length:{length}")
         
         #OCR
         original_text_extract = pytesseract.image_to_data(image, output_type=Output.DICT)
@@ -95,7 +93,6 @@ def verify(config_obj,image,type_id):
         
         # Find unique id version    
         version_all = db.session.query(Config.id_version).filter(Config.id_type==id_type).distinct(Config.id_version).all()
-        # print(f"version_all:{version_all}")
         
         total_list = []
         update_mean_dict ={}
@@ -141,50 +138,58 @@ def verify(config_obj,image,type_id):
                     dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
                     ratio_1 = r1/r2
                     ratio_2 = r3/r4
-                    dist = round(dist,4)  
-                      
+                    dist = round(dist,4)
+                    
                     distance_value.append({'key': params_key[i], 'value':dist })
                     distance_value.append({'key': params_key[i+1], 'value':dist })
                     
                     ratio_value.append({'key': params_key[i], 'value':round(ratio_1,4)})
                     ratio_value.append({'key': params_key[i+1], 'value':round(ratio_2,4)})
-            
+                        
             result_dist = []
             for i in range(len(version_numbers)):
                 
-                if version_numbers[i].params_dist== distance_value[i]['value']:
-                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Distance', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': distance_value[i]['value'],'expected_dimension':version_numbers[i].params_dist, 'percentage':(distance_value[i]['value']/version_numbers[i].params_dist)*100})
-                else:
-                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Distance', 'param_value': version_numbers[i].params, 'value':0, 'actual_dimension': distance_value[i]['value'],'expected_dimension':version_numbers[i].params_dist, 'percentage':(version_numbers[i].params_dist/distance_value[i]['value'])*100})
+                per = [version_numbers[i].params_ratio,ratio_value[i]['value']]
+                per_min = min(per)
+                per_max = max(per)
+                percentage_ratio = (per_min/per_max)*100
                 
+                per_breath = [version_numbers[i].image_breath, breath]
+                per_b_min = min(per_breath)
+                per_b_max = max(per_breath)
+                per_image_breath = (per_b_min/per_b_max)*100
+                
+                per_length = [version_numbers[i].image_length, length]
+                per_l_min = min(per_length)
+                per_l_max = max(per_length)
+                per_image_length = (per_l_min/per_l_max)*100
+                
+                    
                 if version_numbers[i].params_ratio == ratio_value[i]['value']:
-                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':(version_numbers[i].params_ratio/ratio_value[i]['value'])*100})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':round(percentage_ratio)})
                 else:
-                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':0, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':(version_numbers[i].params_ratio/ratio_value[i]['value'])*100})
+                    result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':round(percentage_ratio), 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':round(percentage_ratio)})
                 
             if version_numbers[i].image_breath == breath :
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':100, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':(version_numbers[i].image_breath/breath)*100})
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':100, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
             else:
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':0, 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':(version_numbers[i].image_breath/breath)*100})
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_breath, 'value':round(per_image_breath), 'actual_dimension': breath,'expected_dimension':version_numbers[i].image_breath,'percentage':round(per_image_breath)})
                 
             if version_numbers[i].image_length == length :
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':(version_numbers[i].image_length/length)*100})
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
             else:
-                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':0, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':(version_numbers[i].image_length/length)*100})
+                result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':round(per_image_length), 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
                     
             result_df = pd.DataFrame(result_dist)
             
-            df = result_df.loc[:,["param_type","param_value","value","actual_dimension","expected_dimension","percentage"]]
+            df = result_df.loc[:,["param_value","value","actual_dimension","expected_dimension","percentage"]]
             data = df.to_dict('records')
             
             copy = [ sub['value'] for sub in data ]
-
             total = sum(copy)/len(copy)
-            
+    
             a_dictionary = {"total" : round(total)}
-            
             data.append(a_dictionary)
-            
             result_list.append(data)
             
             # 
@@ -197,26 +202,22 @@ def verify(config_obj,image,type_id):
         result_score_dict= list(update_mean_dict.values())
         result = max(result_score_dict) 
         #
-        
         for i in result_list:
             total_list.append(i[-1]['total']) 
         
         total_max = max(total_list)
         
-        key_list = []
         for j in result_list:
             if total_max == j[-1]['total']:
                 key_list = j
-                
-        print("key_list",key_list)
         
-        proof_dict={"score":result, "key_score":key_list[:-1],"id_type":type_id}
+        proof_dict={"score":round(result), "key_score":key_list[:-1],"id_type":type_id}
         return proof_dict
         
     except Exception as e:
         logging.exception("verify : exception : {}".format(e))
     logging.debug("verify : end")
-    return {"score":0, "key_score":[],"id_type":type_id}
+    return {"score":0, "key_score":key_list[:-1],"id_type":type_id}
 
 def verify_image(img):
     """
@@ -245,19 +246,17 @@ def verify_image(img):
         w = faces[0][2]
         h = faces[0][3]
         
-        cor1 = (y ,x)
-        logging.info(f"cor1:{cor1}")
+        cor1 = (y,x)
         cor2 = (w,x)
-        logging.info(f"cor2:{cor2}")
         cor3 = (y,h)
-        logging.info(f"cor3:{cor3}")
         cor4 = (w,h)
-        logging.info(f"cor4:{cor4}")
         
         #breath = y - w
         #length = x - h  
-        breath = cor3[0] - cor4[0]
-        length = cor2[1] - cor4[1]
+        
+        breath = abs(cor3[0] - cor4[0])
+        length = abs(cor2[1] - cor4[1])
+        
         return breath, length   
     except Exception as e:
         logging.error("verify_image : exception : {}".format(e))
@@ -291,6 +290,7 @@ def value():
     logging.info(d['text'])
     
     response_dict = {}
+    response_list = []
     
     for i in range(n_boxes):
         value_dict = {}
@@ -301,6 +301,9 @@ def value():
         
         response_dict[d['text'][i]] = value_dict
         
+    for key , value in response_dict.items():
+        response_list.append({'param_key':key, 'left':value['left'], 'top':value['top'], 'width':value['width'], 'height':value['height']})
+        
     image = verify_image(img)
     lst = ["breath", int(image[0]),"length",int(image[1])]
     
@@ -310,12 +313,11 @@ def value():
     
     length_breath = Convert(lst)
     
-    result_dict={"text":response_dict, "image":length_breath,"id_type":type_id}
+    result_dict={"text":response_list, "image":length_breath,"id_type":type_id}
     resp_dict["object"] = result_dict
     resp_dict ["status"] = True
     
     os.remove(IMAGE_PATH+"/"+image_file_name)
-    
     logging.debug("value : end")
     return jsonify(resp_dict)
 
@@ -333,8 +335,6 @@ def add_config():
         # Find distance and ratio        
         distance_value = []
         ratio_value = []
-        
-        print("dict_params",dict_params)    
         
         length_dict_params =len(dict_params) 
         if length_dict_params>1:
@@ -371,11 +371,18 @@ def add_config():
             for i in range(len(distance_value)):
                 for j in range(len(ratio_value)):
                     if i == j:
-                        config = Config(id_type,id_version,distance_value[i]['key'],distance_value[i]['value'],ratio_value[j]['value'],breath,length) 
+                        config = Config(id_type,id_version,distance_value[i]['key'],distance_value[i]['value'],ratio_value[j]['value'],abs(breath),abs(length)) 
                         db.session.add(config)
                         db.session.commit()
+                        
+        config = db.session.query(Config.config_id).filter(and_(Config.id_type==id_type, Config.id_version==id_version, Config.status=='A')).distinct(Config.config_id).all()
+        config_all = [i[0] for i in config]
+        config_id = len(config_all)/2
+        
+        final_dict = {"config":f"{int(config_id)} Config  Added", "id_version": id_version}
         
         resp_dict["msg"] = "Config Added Successfully"
+        resp_dict['object'] = final_dict
         resp_dict ["status"] = True
     except Exception as e:
         logging.error("add_config : exception : {}".format(e))
