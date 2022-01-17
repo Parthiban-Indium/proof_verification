@@ -21,6 +21,8 @@ STATUS = {
     "DELETE" : "C"
 }
 
+app.config["LOGO_IMAGES"] = "static/logo-images/"
+
 # Postgres database connection
 db_url = 'postgresql://postgres:root@localhost:5432/proof_verification'
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url

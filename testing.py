@@ -1,6 +1,6 @@
 from app import app,db,logging
 
-import proof
+import application
 import unittest
 import json
 
@@ -8,7 +8,7 @@ from io import BytesIO
 
 import ast
 
-app.route(proof)
+app.route(application)
 
 class Flask_Test(unittest.TestCase):
 

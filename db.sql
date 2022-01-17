@@ -7,8 +7,21 @@ CREATE TABLE tb_config(
     params_ratio NUMERIC(10,4) NOT NULL DEFAULT 0.00,
     image_breath NUMERIC(10,4) NOT NULL DEFAULT 0.00,
     image_length NUMERIC(10,4) NOT NULL DEFAULT 0.00,
-    key_breath VARCHAR(1000) DEFAULT 'Breath',
-    key_length VARCHAR(1000) DEFAULT 'length',
+    image_logo NUMERIC(10,4) NOT NULL DEFAULT 0.00,
+    key_breath VARCHAR(1000) DEFAULT 'Photo Breath',
+    key_length VARCHAR(1000) DEFAULT 'Photo Length',
+    key_logo VARCHAR(1000) DEFAULT 'Photo Logo',
+    status CHAR(1) DEFAULT 'A',
+    created_by INTEGER DEFAULT 0,
+    created_date TIMESTAMP DEFAULT NULL,
+    updated_by INTEGER DEFAULT 0,
+    updated_date TIMESTAMP DEFAULT NULL
+);
+
+CREATE TABLE tb_image(
+    id SERIAL PRIMARY KEY,
+    id_type VARCHAR(1000) NOT NULL,
+    img VARCHAR(64) DEFAULT NULL,
     status CHAR(1) DEFAULT 'A',
     created_by INTEGER DEFAULT 0,
     created_date TIMESTAMP DEFAULT NULL,
