@@ -16,16 +16,16 @@ import glob
 
 #pytesseract.pytesseract.tesseract_cmd = "/home/indium/Documents/develop/tesseract\tesseract.exe"
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe'
+#pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe'
 
 from pytesseract import Output
 
 import datetime
 import pandas as pd
 
-#IMAGE_PATH = "/home/indium/Documents/develop/id_verify/backend/images"
+IMAGE_PATH = "/home/indium/Documents/develop/id_verify/backend/images"
 
-IMAGE_PATH = "C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\images"
+#IMAGE_PATH = "C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\images\\"
 
 @app.route("/")
 def home():
@@ -47,16 +47,13 @@ def id_proof():
     input_json = request.form.get('id_type')
     
     if image:
-        str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
-        image_file_name = str_time+".jpg"
-        
         logging.info(os.path.isdir(IMAGE_PATH))
         if os.path.isdir(IMAGE_PATH)==False:
             os.mkdir(IMAGE_PATH)
             
         # image save
-        image.save(os.path.join(IMAGE_PATH,image_file_name))
-        image_read = cv2.imread(IMAGE_PATH+"/"+image_file_name)
+        image.save(os.path.join(IMAGE_PATH,"image.jpg"))
+        image_read = cv2.imread(IMAGE_PATH+"/image.jpg")
         
         type_id = input_json
         
@@ -72,7 +69,7 @@ def id_proof():
     else:
         resp_dict["object"] = "Image Required"
  
-    os.remove(IMAGE_PATH+"/"+image_file_name)
+    os.remove(IMAGE_PATH+"/image.jpg")
         
     resp = jsonify(resp_dict)
     logging.debug("id_proof : end")
@@ -92,30 +89,6 @@ def verify(config_obj,image,type_id):
         
         breath = verified_image[0]
         length = verified_image[1]
-        
-        image_logo = Img.query.filter(Img.id_type==type_id).first()
-        simage = app.config["LOGO_IMAGES"]+image_logo.img
-        
-        print("searchimage",simage)
-            
-        searchimage =  simage
-        save_path = ''
-        
-        str_time =  datetime.datetime.now().strftime('%d%m%Y%H%M%S')
-        image_file_name = str_time+".jpg"
-        
-        files = (IMAGE_PATH+"/"+image_file_name)
-        
-        image_holder = imagesearch(searchimage, files, save_path)
-        image_holder.detect()
-        
-        image_logo = image_holder.search_feature_match(searchimage,files)
-        print("---image_logo---",image_logo)
-        
-        if image_logo == 'Logo Not found':
-            logo_image = 0
-        else:
-            logo_image = image_logo
         
         #OCR
         original_text_extract = pytesseract.image_to_data(image, output_type=Output.DICT)
@@ -200,10 +173,6 @@ def verify(config_obj,image,type_id):
                 per_l_max = max(per_length)
                 per_image_length = (per_l_min/per_l_max)*100
                 
-                per_logo = [version_numbers[i].image_logo, logo_image]
-                per_l_min = min(per_logo)
-                per_l_max = max(per_logo)
-                per_image_logo = (per_l_min/per_l_max)*100
             
                 if version_numbers[i].params_ratio == (ratio_value[i]['value']):
                     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':round(percentage_ratio)})
@@ -219,7 +188,34 @@ def verify(config_obj,image,type_id):
                 result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':100, 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
             else:
                 result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Image', 'param_value': version_numbers[i].key_length, 'value':round(per_image_length), 'actual_dimension': length, 'expected_dimension':version_numbers[i].image_length,'percentage':round(per_image_length)})
+            
+            image_logo = Img.query.filter(Img.id_type==type_id).first()
+    
+            simage = app.config["LOGO_IMAGES"]+image_logo.img
+            print("simage",simage)
+            
+            save_path = ''
+            
+            files = (IMAGE_PATH+"/image.jpg")
+            
+            print("files",files)
+            
+            image_holder = imagesearch(simage, files, save_path)
+            image_holder.detect()
+            
+            logo_ratio = image_holder.search_feature_match(simage,files)
+            print("---logo_ratio---",logo_ratio)
+            
+            if logo_ratio == 'Logo Not found':
+                logo_image = 0
+            else:
+                logo_image = logo_ratio
                 
+            per_logo = [version_numbers[i].image_logo, logo_image]
+            per_l_min = min(per_logo)
+            per_l_max = max(per_logo)
+            per_image_logo = (per_l_min/per_l_max)*100
+               
             if version_numbers[i].image_logo == logo_image :
                 result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Logo', 'param_value': version_numbers[i].key_logo, 'value':100, 'actual_dimension': logo_image,'expected_dimension':version_numbers[i].image_logo,'percentage':round(per_image_logo)})
             else:
@@ -260,7 +256,7 @@ def verify(config_obj,image,type_id):
         
         proof_dict={"score":round(result), "key_score":key_list[:-1],"id_type":type_id}
         return proof_dict
-        
+          
     except Exception as e:
         logging.exception("verify : exception : {}".format(e))
     logging.debug("verify : end")
@@ -275,7 +271,8 @@ def verify_image(img):
     """
     logging.debug("verify_image : start")
     try:
-        face_cascade = cv2.CascadeClassifier("C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Python\\Python38\\haarcascade_frontalface_default.xml")
+        face_cascade = cv2.CascadeClassifier("/home/indium/Documents/develop/id_verify/backend/haarcascade_frontalface_default.xml")
+        #face_cascade = cv2.CascadeClassifier("C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\haarcascade_frontalface_default.xml")
         img_size = img.shape
         print("image dimensions", img.shape) # width , height
         # width = img_size[0]/2
@@ -386,7 +383,7 @@ def value():
     
     length_breath = Convert(lst)
     
-    logo_present = db.session.query(Img.img).filter(Img.id_type==type_id).all()
+    logo_present = db.session.query(Img.id).filter(Img.id_type==type_id).all()
     print("logo_present",len(logo_present))
     
     if len(logo_present) == 0:
@@ -408,6 +405,8 @@ def value():
     save_path = ''
     
     files = (IMAGE_PATH+"/"+image_file_name)
+    
+    print("files",files)
     
     image_holder = imagesearch(searchimage, files, save_path)
     image_holder.detect()
@@ -517,10 +516,11 @@ class imagesearch():
     
     def search_feature_match(self,queryimage, searchimage):
         try:
-            img1 = cv2.imread(queryimage,0)     
+            img1 = cv2.imread(queryimage,0)
             print("-------------------------")    
             img2 = cv2.imread(searchimage,0)
-            sift = cv2.xfeatures2d.SIFT_create()
+            #sift = cv2.xfeatures2d.SIFT_create()
+            sift = cv2.SIFT_create()
             kp1, des1 = sift.detectAndCompute(img1,None)
             kp2, des2 = sift.detectAndCompute(img2,None)
             print("No of Key Points", len(kp2))
