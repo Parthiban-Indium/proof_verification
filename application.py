@@ -1,3 +1,4 @@
+from cv2 import invert
 from app import app ,logging, STATUS,db
 from model import *
 from flask import jsonify, request, sessions
@@ -14,18 +15,20 @@ import numpy as np
 
 import glob
 
+logging.basicConfig(filename="proof_verify.log",level=logging.DEBUG,format='PROOF_VERIFY %(asctime)s  %(name)s  %(levelname)s: %(message)s')
+
 #pytesseract.pytesseract.tesseract_cmd = "/home/indium/Documents/develop/tesseract\tesseract.exe"
 
-#pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\Indium Software\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe'
 
 from pytesseract import Output
 
 import datetime
 import pandas as pd
 
-IMAGE_PATH = "/home/indium/Documents/develop/id_verify/backend/images"
+#IMAGE_PATH = "/home/indium/Documents/develop/id_verify/backend/images"
 
-#IMAGE_PATH = "C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\images\\"
+IMAGE_PATH = "C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\images\\"
 
 @app.route("/")
 def home():
@@ -59,8 +62,10 @@ def id_proof():
         
         config_obj =  Config.query.filter(Config.id_type ==input_json).all()
         
+        preprocess_image = inverted(image_read)
+        
         if input_json:
-            verified = verify(config_obj,image_read,type_id)
+            verified = verify(config_obj,preprocess_image,type_id,image_read)
         else:
             resp_dict["msg"] = "Id Type Required"
             
@@ -75,7 +80,7 @@ def id_proof():
     logging.debug("id_proof : end")
     return resp
 
-def verify(config_obj,image,type_id):
+def verify(config_obj,preprocess_image,type_id,image):
     """
     Verify Text Method 
     To Find Co-Ordinates of Text Location 
@@ -91,7 +96,7 @@ def verify(config_obj,image,type_id):
         length = verified_image[1]
         
         #OCR
-        original_text_extract = pytesseract.image_to_data(image, output_type=Output.DICT)
+        original_text_extract = pytesseract.image_to_data(preprocess_image, output_type=Output.DICT)
         n_boxes = len(original_text_extract['level'])
         for config in config_obj:
             id_type=config.id_type
@@ -123,10 +128,6 @@ def verify(config_obj,image,type_id):
                             (x, y, w, h) = (original_text_extract['left'][i], original_text_extract['top'][i], original_text_extract['width'][i], original_text_extract['height'][i])
                             value = (x, y, w, h)
                             dict_params[params] = value
-            
-            print("---list_of_params---",list_of_params)
-            
-            print("dict_params",dict_params)
                             
             # ratio
             ratio_value = list()
@@ -154,10 +155,7 @@ def verify(config_obj,image,type_id):
                 
             result_dist = list()
             
-            print("ratio_value",ratio_value)
-            
             for i in range(len(version_numbers)):
-                
                 per = [version_numbers[i].params_ratio, ratio_value[i]['value']]
                 per_min = min(per)
                 per_max = max(per)
@@ -173,7 +171,6 @@ def verify(config_obj,image,type_id):
                 per_l_max = max(per_length)
                 per_image_length = (per_l_min/per_l_max)*100
                 
-            
                 if version_numbers[i].params_ratio == (ratio_value[i]['value']):
                     result_dist.append({'id': version_numbers[i].id_version, 'param_type': 'Ratio', 'param_value': version_numbers[i].params, 'value':100, 'actual_dimension': ratio_value[i]['value'],'expected_dimension':version_numbers[i].params_ratio, 'percentage':round(percentage_ratio)})
                 else:
@@ -199,11 +196,8 @@ def verify(config_obj,image,type_id):
             files = (IMAGE_PATH+"/image.jpg")
             
             print("files",files)
-            
-            image_holder = imagesearch(simage, files, save_path)
-            image_holder.detect()
-            
-            logo_ratio = image_holder.search_feature_match(simage,files)
+
+            logo_ratio = search_feature_match(simage,files)
             print("---logo_ratio---",logo_ratio)
             
             if logo_ratio == 'Logo Not found':
@@ -235,7 +229,6 @@ def verify(config_obj,image,type_id):
             data.append(a_dictionary)
             result_list.append(data)
             
-            # 
             grouped = result_df.groupby(['id'])
             mean = grouped['value'].agg(np.mean)
             
@@ -271,52 +264,17 @@ def verify_image(img):
     """
     logging.debug("verify_image : start")
     try:
-        face_cascade = cv2.CascadeClassifier("/home/indium/Documents/develop/id_verify/backend/haarcascade_frontalface_default.xml")
-        #face_cascade = cv2.CascadeClassifier("C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\haarcascade_frontalface_default.xml")
+        #face_cascade = cv2.CascadeClassifier("/home/indium/Documents/develop/id_verify/backend/haarcascade_frontalface_default.xml")
+        face_cascade = cv2.CascadeClassifier("C:\\Users\\Indium Software\\Documents\\develop\\proof-backend\\haarcascade_frontalface_default.xml")
         img_size = img.shape
         print("image dimensions", img.shape) # width , height
-        # width = img_size[0]/2
-        # height = img_size[1]/2
         
-        # width = img_size[0]
-        # height = img_size[1]
-        # print("width",width) # 319
-        # print("height",height)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, 1.3, 5)
         for (x,y,w,h) in faces:
-            print("xxx",x) # 795
-            print("yyy",y)
-            print("www",w)
-            print("hhh",h)
             
-            #xxx 795
-            #yyy 439
-            #www 109
-            #hhh 109
-            
-            breath = abs(y - w)
-            length = abs(x - h)  
-        
-            # breath = abs(cor3[0] - cor4[0])
-            # length = abs(cor2[1] - cor4[1])
-            
-            # ratio = w/h
-            
-            # print("ratio",ratio)
-            
-            # if x > width:
-            #     id_type = "PAN"
-            # else:
-            #     id_type = ""
-            
-            # cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
-            # roi_gray = gray[y:y+h, x:x+w]
-            # roi_color = img[y:y+h, x:x+w]
-            # sub_face = img[y:y+h, x:x+w]
-            # face_file_name = "sample.jpg"
-            # plt.imsave(face_file_name, sub_face)
-            # plt.imshow(sub_face)
+            breath = w
+            length = h
             
         return breath, length
         
@@ -355,7 +313,8 @@ def value():
         image.save(os.path.join(IMAGE_PATH,image_file_name))
         
     img = cv2.imread(IMAGE_PATH+"/"+image_file_name)
-    d = pytesseract.image_to_data(img, output_type=Output.DICT)
+    preprocess_image = inverted(img)
+    d = pytesseract.image_to_data(preprocess_image, output_type=Output.DICT)
     n_boxes = len(d['level'])
     logging.info(d['text'])
     
@@ -373,7 +332,8 @@ def value():
         
     for key , value in response_dict.items():
         response_list.append({'param_key':key, 'left':value['left'], 'top':value['top'], 'width':value['width'], 'height':value['height']})
-        
+    
+    
     image = verify_image(img)
     lst = ["breath", int(image[0]),"length",int(image[1])]
     
@@ -408,10 +368,7 @@ def value():
     
     print("files",files)
     
-    image_holder = imagesearch(searchimage, files, save_path)
-    image_holder.detect()
-    
-    logo_ratio = image_holder.search_feature_match(searchimage,files)
+    logo_ratio = search_feature_match(searchimage,files)
     print("---logo_ratio---",logo_ratio)
     
     #"image": {'breath': 0, 'length': 0},
@@ -468,7 +425,7 @@ def add_config():
                 id_version = 1
             
             for j in range(len(ratio_value)):
-                    config = Config(id_type,id_version,ratio_value[j]['key'],0,ratio_value[j]['value'],abs(image_breath),abs(image_length),image_logo_value)
+                    config = Config(id_type,id_version,ratio_value[j]['key'],0,ratio_value[j]['value'],image_breath,image_length,image_logo_value)
                     db.session.add(config)
                     db.session.commit()
                         
@@ -489,6 +446,7 @@ def add_config():
 
 @app.route("/document-types", methods=["POST"])
 def document_types():
+    
     """Document Types"""
     logging.debug("document_types : start")
     resp_dict = {"status":False, "object":None}
@@ -503,111 +461,94 @@ def document_types():
     logging.debug("document_types : end")
     return jsonify(resp_dict)
 
-class imagesearch():
-    def __init__(self, queryimage, searchimage, save_path):
-            self.queryimage = queryimage
-            self.searchimage = searchimage
-            self.save_path = save_path
-            self.image_file =  os.path.basename(searchimage)
-            self.initialize() 
-                
-    def initialize(self):
-        self.order_id = 1
-    
-    def search_feature_match(self,queryimage, searchimage):
-        try:
-            img1 = cv2.imread(queryimage,0)
-            print("-------------------------")    
-            img2 = cv2.imread(searchimage,0)
-            #sift = cv2.xfeatures2d.SIFT_create()
-            sift = cv2.SIFT_create()
-            kp1, des1 = sift.detectAndCompute(img1,None)
-            kp2, des2 = sift.detectAndCompute(img2,None)
-            print("No of Key Points", len(kp2))
-            FLANN_INDEX_KDTREE = 0
-            index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 10)
-            search_params = dict(checks=1000)  
-            flann = cv2.FlannBasedMatcher(index_params,search_params)
-            matches = flann.knnMatch(des1,des2,k=2)
+# Logo Process
+def search_feature_match(queryimage, searchimage):
+    try:
+        logging.debug("search_feature_match: start")
+        img1 = cv2.imread(queryimage,0)
+        img2 = cv2.imread(searchimage,0)
+        #sift = cv2.xfeatures2d.SIFT_create()
+        sift = cv2.SIFT_create()
+        kp1, des1 = sift.detectAndCompute(img1,None)
+        kp2, des2 = sift.detectAndCompute(img2,None)
+        FLANN_INDEX_KDTREE = 0
+        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 10)
+        search_params = dict(checks=1000)  
+        flann = cv2.FlannBasedMatcher(index_params,search_params)
+        matches = flann.knnMatch(des1,des2,k=2)
 
-            good = []
-            contorurarray = []
-            for m,n in matches:
-                if m.distance < 0.75*n.distance:
-                    contorurarray.append([m.distance,n.distance])
-                    good.append(m)
-
-            print('No.of Good Points',len(good))
-            print('No.of Matching points',len(matches))
-            
-            src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
-            dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
-            print('No.of dst_pts',len(dst_pts))
-            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
-            matchesMask = mask.ravel().tolist()
-            h,w = img1.shape[:2]
-            h1,w1 = img2.shape[:2]
-            print("height",h1) #638
-            print("width",w1) #995
-            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
-            print("pts",pts)
-
-            dst = cv2.perspectiveTransform(pts,M)
-            draw_params = dict(matchColor = (0,255,0), singlePointColor = None,  matchesMask = matchesMask, flags = 2)
-            img3 = cv2.polylines(img2, [np.int32(dst)], True, (0,255,0),10, cv2.LINE_AA)
-            print("---Destination points---",dst)
-            
-            ratio = w1/h1
-            
-            # dst_pos_0 = dst[0][0][0] # 493.32 
-            # # dst_pos_1 = dst[1][0][0]
-            # # dst_pos_2 = dst[2][0][0]
-            # # dst_pos_3 = dst[3][0][0]
-            
-            # print("dst_pos_0",dst_pos_0)
-            # value = 100
-            # position = round(w1)/2  # 497.5
-            # pos1 = position + value
-            # pos2 = position - value
-
-            # print("pos1",pos1)
-            # print("pos2",pos2)
-            
-            # if pos2 <= dst_pos_0 <= pos1:
-            #     id_type = "PAN"
-            # else:
-            #     id_type = " "   
-            return round(ratio,4)
-    
-        except Exception as e:
-            print(e) 
-        return "Logo Not found"
+        good = []
+        contorurarray = []
+        for m,n in matches:
+            if m.distance < 0.75*n.distance:
+                contorurarray.append([m.distance,n.distance])
+                good.append(m)
         
-    #cv2.imwrite(os.path.join(self.save_path,self.image_file+"search_feature_match.jpg"), img3)
+        src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
+        dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
 
-    def rectangle_focus(self,queryimage, searchimage):
-        print('------Rectangle Focus Initated-----')
-        image = cv2.imread(searchimage)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        gray = clahe.apply(gray)
-        edge_enh = cv2.Laplacian(gray, ddepth = cv2.CV_8U, 
-                                ksize = 3, scale = 1, delta = 0)
-        blurred = cv2.bilateralFilter(edge_enh, 13, 50, 50)
-        (_, thresh) = cv2.threshold(blurred, 55, 255, cv2.THRESH_BINARY)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        closed = cv2.erode(closed, None, iterations = 4)
-        closed = cv2.dilate(closed, None, iterations = 4)
-        (_, cnts, _) = cv2.findContours(closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        c = sorted(cnts, key = cv2.contourArea, reverse = True)[0]
-        rect = cv2.minAreaRect(c)
-        box = np.int0(cv2.boxPoints(rect))
-        cv2.drawContours(image, [box], -1, (0, 255, 0), 3)
-        retval = cv2.imwrite(os.path.join(self.save_path,self.image_file+self.image_file+"rectangle_focus.jpg"), image)
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
+        matchesMask = mask.ravel().tolist()
+        h,w = img1.shape[:2]
+        h1,w1 = img2.shape[:2]
+        
+        pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
 
-    def detect(self,**kwargs):
-        self.search_feature_match(self.queryimage, self.searchimage)
+        dst = cv2.perspectiveTransform(pts,M)
+        draw_params = dict(matchColor = (0,255,0), singlePointColor = None,  matchesMask = matchesMask, flags = 2)
+        img3 = cv2.polylines(img2, [np.int32(dst)], True, (0,255,0),10, cv2.LINE_AA)
+        
+        ratio = w1/h1
+        print("ratio",ratio)
+        return round(ratio,4)
+
+    except Exception as e:
+        logging.exception("dataset_column_list : exception : {}".format(e))
+    logging.debug("search_feature_match : end")
+    return "Logo Not found"
+
+# PreProcess Image
+def inverted(img):
+    inverted_image = cv2.bitwise_not(img)
+    gray_image = grayscale(img)
+    no_noise = noise_removal(gray_image)
+    eroded_image = thin_font(no_noise)
+    no_borders = remove_borders(no_noise)
+    cv2.imwrite("no_borders.jpg", no_borders)
+    
+    return cv2.imread("no_borders.jpg")
+    
+def grayscale(image):
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+# Noise Removal
+def noise_removal(image):
+    import numpy as np
+    kernel = np.ones((1, 1), np.uint8)
+    image = cv2.dilate(image, kernel, iterations=1)
+    kernel = np.ones((1, 1), np.uint8)
+    image = cv2.erode(image, kernel, iterations=1)
+    image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
+    image = cv2.medianBlur(image, 3)
+    return (image)
+
+#Dilation and Erosion
+def thin_font(image):
+    import numpy as np
+    image = cv2.bitwise_not(image)
+    kernel = np.ones((2,2),np.uint8)
+    image = cv2.erode(image, kernel, iterations=1)
+    image = cv2.bitwise_not(image)
+    return (image)
+
+# Remove Borders
+def remove_borders(image):
+    contours, heiarchy = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cntsSorted = sorted(contours, key=lambda x:cv2.contourArea(x))
+    cnt = cntsSorted[-1]
+    x, y, w, h = cv2.boundingRect(cnt)
+    crop = image[y:y+h, x:x+w]
+    return (crop)
 
 if __name__ == "__main__":
     app.run(debug=True,host="0.0.0.0",port=5001)
